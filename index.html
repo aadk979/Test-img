@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Manager</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js"></script>
+</head>
+<body>
+<div class="container mt-5">
+    <div class="d-flex justify-content-between mb-4">
+        <h1>Image Manager</h1>
+        <button id="toggle-section" class="btn btn-primary">Switch Section</button>
+    </div>
+
+    <div id="upload-section">
+        <h3>Upload Images</h3>
+        <form id="upload-form">
+            <div class="mb-3">
+                <label for="image-input" class="form-label">Choose Image</label>
+                <input type="file" id="image-input" class="form-control" accept="image/*" required>
+            </div>
+            <button type="submit" class="btn btn-success">Upload</button>
+        </form>
+    </div>
+
+    <div id="display-section" style="display: none;">
+        <h3>Stored Images</h3>
+        <div id="image-container" class="row g-3"></div>
+    </div>
+</div>
+
+<script>
+    // Firebase Config
+    const firebaseConfig = {
+        apiKey: "AIzaSyCBOic03YKQ5li1-c0px1iuNDBan-6__X4",
+  	    authDomain: "images-b6848.firebaseapp.com",
+  	    projectId: "images-b6848",
+  	    storageBucket: "images-b6848.firebasestorage.app",
+  	    messagingSenderId: "721248626413",
+  	    appId: "1:721248626413:web:5f7624a794c3f441f18ee4",
+  	    measurementId: "G-FHRD28Z9KB"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Toggle Sections
+    const toggleButton = document.getElementById('toggle-section');
+    const uploadSection = document.getElementById('upload-section');
+    const displaySection = document.getElementById('display-section');
+
+    toggleButton.addEventListener('click', () => {
+        const isUploadVisible = uploadSection.style.display !== 'none';
+        uploadSection.style.display = isUploadVisible ? 'none' : 'block';
+        displaySection.style.display = isUploadVisible ? 'block' : 'none';
+        if (!isUploadVisible) fetchImages();
+    });
+
+    // Upload Image
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('image-input');
+        const file = fileInput.files[0];
+
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const base64 = reader.result;
+            const docRef = db.collection('images').doc('img');
+
+            const docSnap = await docRef.get();
+            if (docSnap.exists) {
+                const data = docSnap.data();
+                const updatedArray = [...(data.imageArray || []), base64];
+                await docRef.update({ imageArray: updatedArray });
+            } else {
+                await docRef.set({ imageArray: [base64] });
+            }
+
+            alert('Image uploaded successfully!');
+            fileInput.value = '';
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // Fetch and Display Images
+    async function fetchImages() {
+        const imageContainer = document.getElementById('image-container');
+        imageContainer.innerHTML = '';
+
+        const docRef = db.collection('images').doc('img');
+        const docSnap = await docRef.get();
+
+        if (docSnap.exists) {
+            const data = docSnap.data();
+            (data.imageArray || []).forEach((base64, index) => {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'col-md-4';
+                const img = document.createElement('img');
+                img.src = base64;
+                img.className = 'img-fluid rounded';
+                img.alt = `Image ${index + 1}`;
+                colDiv.appendChild(img);
+                imageContainer.appendChild(colDiv);
+            });
+        } else {
+            imageContainer.innerHTML = '<p>No images found.</p>';
+        }
+    }
+</script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
