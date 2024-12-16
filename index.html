@@ -1,122 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Manager</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bootstrap File Manager</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    .hidden {
+      display: none;
+    }
+    .gallery img {
+      max-width: 200px;
+      margin: 10px;
+      border-radius: 5px;
+    }
+  </style>
 </head>
 <body>
-<div class="container mt-5">
-    <div class="d-flex justify-content-between mb-4">
-        <h1>Image Manager</h1>
-        <button id="toggle-section" class="btn btn-primary">Switch Section</button>
+  <div class="container mt-5">
+    <h1 class="text-center">File Upload & Gallery Viewer</h1>
+    <div class="text-center mb-4">
+      <button id="toggleButton" class="btn btn-primary">Switch to Gallery</button>
     </div>
 
-    <div id="upload-section">
-        <h3>Upload Images</h3>
-        <form id="upload-form">
-            <div class="mb-3">
-                <label for="image-input" class="form-label">Choose Image</label>
-                <input type="file" id="image-input" class="form-control" accept="image/*" required>
-            </div>
-            <button type="submit" class="btn btn-success">Upload</button>
-        </form>
+    <!-- File Upload Section -->
+    <div id="uploadSection" class="mb-5">
+      <h2>Upload Files</h2>
+      <p>Upload multiple files and store them in Base64 format.</p>
+      <form id="uploadForm">
+        <div class="mb-3">
+          <label for="fileInput" class="form-label">Select Files</label>
+          <input class="form-control" type="file" id="fileInput" multiple>
+        </div>
+        <button type="submit" class="btn btn-success">Upload</button>
+      </form>
+      <div id="uploadStatus" class="mt-3"></div>
     </div>
 
-    <div id="display-section" style="display: none;">
-        <h3>Stored Images</h3>
-        <div id="image-container" class="row g-3"></div>
+    <!-- Gallery Section -->
+    <div id="gallerySection" class="hidden">
+      <h2>Gallery</h2>
+      <div id="gallery" class="gallery d-flex flex-wrap"></div>
     </div>
-</div>
+  </div>
 
-<script>
-    // Firebase Config
-    const firebaseConfig = {
-        apiKey: "AIzaSyCBOic03YKQ5li1-c0px1iuNDBan-6__X4",
-  	    authDomain: "images-b6848.firebaseapp.com",
-  	    projectId: "images-b6848",
-  	    storageBucket: "images-b6848.firebasestorage.app",
-  	    messagingSenderId: "721248626413",
-  	    appId: "1:721248626413:web:5f7624a794c3f441f18ee4",
-  	    measurementId: "G-FHRD28Z9KB"
-    };
+  <script>
+    const uploadSection = document.getElementById("uploadSection");
+    const gallerySection = document.getElementById("gallerySection");
+    const toggleButton = document.getElementById("toggleButton");
+    const fileInput = document.getElementById("fileInput");
+    const uploadStatus = document.getElementById("uploadStatus");
+    const gallery = document.getElementById("gallery");
 
-    // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    // Toggle Sections
-    const toggleButton = document.getElementById('toggle-section');
-    const uploadSection = document.getElementById('upload-section');
-    const displaySection = document.getElementById('display-section');
-
-    toggleButton.addEventListener('click', () => {
-        const isUploadVisible = uploadSection.style.display !== 'none';
-        uploadSection.style.display = isUploadVisible ? 'none' : 'block';
-        displaySection.style.display = isUploadVisible ? 'block' : 'none';
-        if (!isUploadVisible) fetchImages();
+    // Switch between sections
+    toggleButton.addEventListener("click", () => {
+      if (uploadSection.classList.contains("hidden")) {
+        uploadSection.classList.remove("hidden");
+        gallerySection.classList.add("hidden");
+        toggleButton.textContent = "Switch to Gallery";
+      } else {
+        uploadSection.classList.add("hidden");
+        gallerySection.classList.remove("hidden");
+        toggleButton.textContent = "Switch to Upload";
+        displayImages();
+      }
     });
 
-    // Upload Image
-    document.getElementById('upload-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const fileInput = document.getElementById('image-input');
-        const file = fileInput.files[0];
+    // Handle file upload and conversion to Base64
+    document.getElementById("uploadForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const files = fileInput.files;
+      if (!files.length) {
+        uploadStatus.textContent = "No files selected.";
+        uploadStatus.classList.add("text-danger");
+        return;
+      }
 
-        if (!file) return;
-
+      uploadStatus.textContent = "";
+      Array.from(files).forEach((file) => {
         const reader = new FileReader();
-        reader.onload = async () => {
-            const base64 = reader.result;
-            const docRef = db.collection('images').doc('img');
-
-            const docSnap = await docRef.get();
-            if (docSnap.exists) {
-                const data = docSnap.data();
-                const updatedArray = [...(data.imageArray || []), base64];
-                await docRef.update({ imageArray: updatedArray });
-            } else {
-                await docRef.set({ imageArray: [base64] });
-            }
-
-            alert('Image uploaded successfully!');
-            fileInput.value = '';
+        reader.onload = (e) => {
+          const base64 = e.target.result;
+          saveToLocalStorage(file.name, base64);
+          uploadStatus.innerHTML += `<p class="text-success">${file.name} uploaded successfully.</p>`;
         };
         reader.readAsDataURL(file);
+      });
     });
 
-    // Fetch and Display Images
-    async function fetchImages() {
-        const imageContainer = document.getElementById('image-container');
-        imageContainer.innerHTML = '';
-
-        const docRef = db.collection('images').doc('img');
-        const docSnap = await docRef.get();
-
-        if (docSnap.exists) {
-            const data = docSnap.data();
-            (data.imageArray || []).forEach((base64, index) => {
-                const colDiv = document.createElement('div');
-                colDiv.className = 'col-md-4';
-                const img = document.createElement('img');
-                img.src = base64;
-                img.className = 'img-fluid rounded';
-                img.alt = `Image ${index + 1}`;
-                colDiv.appendChild(img);
-                imageContainer.appendChild(colDiv);
-            });
-        } else {
-            imageContainer.innerHTML = '<p>No images found.</p>';
-        }
+    // Save Base64 data to local storage
+    function saveToLocalStorage(filename, base64) {
+      const existingData = JSON.parse(localStorage.getItem("uploadedFiles")) || [];
+      existingData.push({ name: filename, data: base64 });
+      localStorage.setItem("uploadedFiles", JSON.stringify(existingData));
     }
-</script>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+    // Display images from local storage
+    function displayImages() {
+      gallery.innerHTML = ""; // Clear the gallery
+      const storedFiles = JSON.parse(localStorage.getItem("uploadedFiles")) || [];
+      if (!storedFiles.length) {
+        gallery.innerHTML = "<p>No images to display.</p>";
+        return;
+      }
+
+      storedFiles.forEach((file) => {
+        const img = document.createElement("img");
+        img.src = file.data;
+        img.alt = file.name;
+        img.classList.add("img-thumbnail");
+        gallery.appendChild(img);
+      });
+    }
+  </script>
 </body>
 </html>
